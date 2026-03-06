@@ -37,6 +37,20 @@ struct AppPreferences: Codable {
     var launchAtLogin: Bool = false
 }
 
+// Wrapper class for discovered hosts. Swift tuples can't reliably
+// round-trip through NSMenuItem.representedObject (Any?), so we
+// use a proper NSObject subclass instead.
+class DiscoveredHost: NSObject {
+    let name: String
+    let hostname: String
+    let port: Int
+    init(name: String, hostname: String, port: Int) {
+        self.name = name
+        self.hostname = hostname
+        self.port = port
+    }
+}
+
 // MARK: - Keychain Helper
 
 class KeychainHelper {
@@ -89,7 +103,7 @@ class KeychainHelper {
 class BonjourBrowser: NSObject, NetServiceBrowserDelegate, NetServiceDelegate {
     private var browser = NetServiceBrowser()
     private var resolving: [NetService] = []
-    var discoveredHosts: [(name: String, hostname: String, port: Int)] = []
+    var discoveredHosts: [DiscoveredHost] = []
     var onUpdate: (() -> Void)?
 
     override init() {
@@ -129,7 +143,7 @@ class BonjourBrowser: NSObject, NetServiceBrowserDelegate, NetServiceDelegate {
         if let host = sender.hostName {
             let cleanHost = host.hasSuffix(".") ? String(host.dropLast()) : host
             if !discoveredHosts.contains(where: { $0.hostname == cleanHost }) {
-                discoveredHosts.append((name: sender.name, hostname: cleanHost, port: sender.port))
+                discoveredHosts.append(DiscoveredHost(name: sender.name, hostname: cleanHost, port: sender.port))
             }
         }
         resolving.removeAll { $0 == sender }
@@ -511,22 +525,27 @@ class PreferencesWindowController: NSObject, NSWindowDelegate, NSTableViewDataSo
         alert.addButton(withTitle: "Save")
         alert.addButton(withTitle: "Cancel")
 
-        let accessory = NSView(frame: NSRect(x: 0, y: 0, width: 340, height: 220))
+        let labelWidth: CGFloat = 110
+        let fieldX: CGFloat = 118
+        let fieldWidth: CGFloat = 212
+        let rowHeight: CGFloat = 30
+        let accessory = NSView(frame: NSRect(x: 0, y: 0, width: 340, height: 260))
 
-        var y = 190
+        var y: CGFloat = 230
         func addField(label: String, value: String = "", isSecure: Bool = false) -> NSTextField {
             let lbl = NSTextField(labelWithString: label)
-            lbl.frame = NSRect(x: 0, y: y, width: 100, height: 20)
+            lbl.frame = NSRect(x: 0, y: y, width: labelWidth, height: 20)
+            lbl.alignment = .right
             accessory.addSubview(lbl)
             let field: NSTextField
             if isSecure {
-                field = NSSecureTextField(frame: NSRect(x: 110, y: y, width: 220, height: 22))
+                field = NSSecureTextField(frame: NSRect(x: fieldX, y: y - 1, width: fieldWidth, height: 22))
             } else {
-                field = NSTextField(frame: NSRect(x: 110, y: y, width: 220, height: 22))
+                field = NSTextField(frame: NSRect(x: fieldX, y: y - 1, width: fieldWidth, height: 22))
             }
             field.stringValue = value
             accessory.addSubview(field)
-            y -= 32
+            y -= rowHeight
             return field
         }
 
@@ -539,20 +558,21 @@ class PreferencesWindowController: NSObject, NSWindowDelegate, NSTableViewDataSo
             passField.stringValue = KeychainHelper.load(for: h.hostname, username: h.username) ?? ""
         }
 
+        y -= 2
         let storeCheck = NSButton(checkboxWithTitle: "Save password in Keychain", target: nil, action: nil)
-        storeCheck.frame = NSRect(x: 110, y: y, width: 220, height: 20)
+        storeCheck.frame = NSRect(x: fieldX, y: y, width: fieldWidth, height: 20)
         storeCheck.state = (host?.storeCredential ?? false) ? .on : .off
         accessory.addSubview(storeCheck)
-        y -= 28
+        y -= 24
 
         let perfCheck = NSButton(checkboxWithTitle: "High Performance mode", target: nil, action: nil)
-        perfCheck.frame = NSRect(x: 110, y: y, width: 220, height: 20)
+        perfCheck.frame = NSRect(x: fieldX, y: y, width: fieldWidth, height: 20)
         perfCheck.state = (host?.highPerformance ?? false) ? .on : .off
         accessory.addSubview(perfCheck)
-        y -= 28
+        y -= 24
 
         let favCheck = NSButton(checkboxWithTitle: "Favorite (show at top)", target: nil, action: nil)
-        favCheck.frame = NSRect(x: 110, y: y, width: 220, height: 20)
+        favCheck.frame = NSRect(x: fieldX, y: y, width: fieldWidth, height: 20)
         favCheck.state = (host?.isFavorite ?? false) ? .on : .off
         accessory.addSubview(favCheck)
 
@@ -624,22 +644,24 @@ class QuickConnectPanel {
 
         let hostLabel = NSTextField(labelWithString: "Host:")
         hostLabel.frame = NSRect(x: 0, y: 62, width: 60, height: 20)
+        hostLabel.alignment = .right
         accessory.addSubview(hostLabel)
 
-        let hostField = NSTextField(frame: NSRect(x: 70, y: 60, width: 220, height: 22))
+        let hostField = NSTextField(frame: NSRect(x: 68, y: 61, width: 222, height: 22))
         hostField.placeholderString = "mac-mini.local or 192.168.1.50"
         accessory.addSubview(hostField)
 
         let userLabel = NSTextField(labelWithString: "User:")
-        userLabel.frame = NSRect(x: 0, y: 30, width: 60, height: 20)
+        userLabel.frame = NSRect(x: 0, y: 32, width: 60, height: 20)
+        userLabel.alignment = .right
         accessory.addSubview(userLabel)
 
-        let userField = NSTextField(frame: NSRect(x: 70, y: 28, width: 220, height: 22))
+        let userField = NSTextField(frame: NSRect(x: 68, y: 31, width: 222, height: 22))
         userField.placeholderString = "username (optional)"
         accessory.addSubview(userField)
 
         let perfCheck = NSButton(checkboxWithTitle: "High Performance mode", target: nil, action: nil)
-        perfCheck.frame = NSRect(x: 70, y: 0, width: 220, height: 20)
+        perfCheck.frame = NSRect(x: 68, y: 2, width: 222, height: 20)
         perfCheck.state = SettingsStore.shared.preferences.defaultHighPerformance ? .on : .off
         accessory.addSubview(perfCheck)
 
@@ -905,7 +927,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     }
 
     @objc func connectToDiscovered(_ sender: NSMenuItem) {
-        guard let discovered = sender.representedObject as? (name: String, hostname: String, port: Int) else { return }
+        guard let discovered = sender.representedObject as? DiscoveredHost else { return }
         let host = SavedHost(
             displayName: discovered.name,
             hostname: discovered.hostname,
@@ -916,7 +938,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     }
 
     @objc func saveDiscovered(_ sender: NSMenuItem) {
-        guard let discovered = sender.representedObject as? (name: String, hostname: String, port: Int) else { return }
+        guard let discovered = sender.representedObject as? DiscoveredHost else { return }
         let host = SavedHost(
             displayName: discovered.name,
             hostname: discovered.hostname,
@@ -924,7 +946,9 @@ class AppDelegate: NSObject, NSApplicationDelegate {
             isFavorite: true
         )
         prefsController.showHostEditor(host: host)
-        rebuildMenu()
+        DispatchQueue.main.async { [weak self] in
+            self?.rebuildMenu()
+        }
     }
 
     @objc func quickConnect() {
