@@ -30,8 +30,6 @@ macOS Screen Sharing is great, but it has no quick-access menu bar presence and 
 
 ```bash
 xcode-select --install   # if not already installed
-git clone https://github.com/YOUR_USERNAME/Peekaboo.git
-cd Peekaboo
 chmod +x build.sh
 ./build.sh
 ```
