@@ -1,0 +1,17 @@
+# Build artifacts
+Peekaboo
+Peekaboo.app/
+AppIcon.icns
+AppIcon.iconset/
+
+# macOS
+.DS_Store
+*.swp
+*~
+
+# Xcode (if ever opened in Xcode)
+*.xcodeproj/
+*.xcworkspace/
+xcuserdata/
+DerivedData/
+build/
